@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FreshCart — My Orders</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="topnav">
+    <a href="index.html" class="brand">
+        <div class="brand-icon">🌿</div>
+        <div class="brand-text">Fresh<span>Cart</span></div>
+    </a>
+    <nav>
+        <a href="index.html">🛒 Products</a>
+        <a href="orders.html" class="active" data-roles="CUSTOMER">📦 My Orders</a>
+        <a href="my-payments.html" data-roles="CUSTOMER">💳 My Payments</a>
+        <a href="admin-products.html" data-roles="ADMIN">⚙️ Manage Products</a>
+        <a href="admin-orders.html" data-roles="ADMIN,STORE_MANAGER">📋 Manage Orders</a>
+        <a href="admin-payments.html" data-roles="ADMIN,STORE_MANAGER">💳 Manage Payments</a>
+        <a href="reports-dashboard.html" data-roles="ADMIN,STORE_MANAGER">📊 Analytics</a>
+        <a href="admin-users.html" data-roles="ADMIN">👥 Manage Users</a>
+        <a href="delivery-dashboard.html" data-roles="ADMIN,DELIVERY_STAFF">🛵 Deliveries</a>
+        <a href="cart.html" class="cart-pill" data-roles="CUSTOMER">
+            <span class="cart-pill-icon">🛍️</span>
+            <span>Cart</span>
+            <span id="cartCount">0</span>
+        </a>
+        <a href="profile.html">👤 Profile</a>
+        <a href="#" id="logoutBtn">Log out</a>
+    </nav>
+</div>
+
+<div class="page">
+    <div class="page-header reveal">
+        <h1>My Orders & Tracking 📦</h1>
+        <p>Monitor your active fresh food deliveries, view itemized receipts, or modify pending orders.</p>
+    </div>
+
+    <div style="display:flex; gap:12px; margin-bottom:24px; flex-wrap:wrap;" class="reveal">
+        <input type="text" id="orderSearch" placeholder="Search orders by Order #..." style="padding:12px 16px; border:1px solid var(--line); border-radius:var(--radius); flex:1; min-width:200px; background:var(--white);" oninput="renderOrders()">
+        <select id="orderSort" class="sort-select" onchange="renderOrders()">
+            <option value="newest">🕒 Newest first</option>
+            <option value="oldest">⏳ Oldest first</option>
+        </select>
+    </div>
+
+    <div id="ordersList" class="reveal">
+        <p>Loading orders...</p>
+    </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    let allOrders = [];
+    let productLookup = {};
+
+    async function loadOrders() {
+      const user = getUser();
+      const container = document.getElementById("ordersList");
+      try {
+        const [orders, products] = await Promise.all([apiGetOrders(user.id), apiGetProducts()]);
+        productLookup = {};
+        products.forEach((p) => { productLookup[p.id] = p; });
+
+        notifyStatusChanges(orders);
+        allOrders = orders;
+        renderOrders();
+      } catch (err) {
+        container.innerHTML = `<p class="empty-state">Could not load orders.</p>`;
+        console.error(err);
+      }
+    }
+
+    function renderOrders() {
+      const container = document.getElementById("ordersList");
+      const search = document.getElementById("orderSearch").value.trim();
+      const sort = document.getElementById("orderSort").value;
+
+      let filtered = allOrders.filter((o) => !search || String(o.id).includes(search));
+
+      filtered = filtered.slice().sort((a, b) => {
+        const da = new Date(a.orderDate || 0).getTime();
+        const db = new Date(b.orderDate || 0).getTime();
+        return sort === "newest" ? db - da : da - db;
+      });
+
+      if (allOrders.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <h3>No orders yet</h3>
+            <p>You haven't placed any fresh grocery orders yet.</p>
+            <a href="index.html" class="btn btn-primary" style="margin-top:14px;">Browse Products Now</a>
+          </div>`;
+        return;
+      }
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="empty-state">No orders match "${search}".</p>`;
+        return;
+      }
+
+      container.innerHTML = filtered
+        .map((order) => {
+          const editable = order.status === "PENDING";
+          const items = order.items || [];
+          const itemsHtml = items.length
+            ? items.map((it) => {
+                const prod = productLookup[it.productId] || { name: "Product #" + it.productId };
+                const img = getProductImageUrl(prod);
+                return `
+                  <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f5f9;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <img src="${img}" style="width:36px; height:36px; border-radius:6px; object-fit:cover;" onerror="this.onerror=null; this.src='${DEFAULT_SUPERMARKET_IMAGE}';">
+                      <span><strong>${it.quantity}x</strong> ${prod.name}</span>
+                    </div>
+                    <span style="font-weight:600;">Rs. ${(it.priceAtPurchase * it.quantity).toFixed(2)}</span>
+                  </div>`;
+              }).join("")
+            : `<div style="padding:8px 0; color:var(--slate);">No item details available.</div>`;
+
+          const placedOn = order.orderDate ? new Date(order.orderDate).toLocaleString() : "Just now";
+
+          return `
+        <div class="order-card reveal" id="order-${order.id}">
+          <div style="flex:1;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+              <strong style="font-size:1.15rem; color:var(--forest-dark);">Order #${order.id}</strong>
+              <span style="font-size:0.8rem; color:var(--slate);">· ${placedOn}</span>
+            </div>
+
+            <div style="font-size:0.88rem; color:var(--slate); margin-bottom:10px;">
+              📍 <span id="address-view-${order.id}" style="font-weight:600; color:var(--charcoal);">${order.deliveryAddress || "Standard delivery address"}</span>
+              &nbsp;•&nbsp; Total: <strong style="color:var(--forest-dark); font-size:1rem;">Rs. ${(order.totalAmount || 0).toFixed(2)}</strong>
+            </div>
+
+            <div id="address-edit-${order.id}" style="display:none; margin:10px 0;">
+              <input type="text" id="address-input-${order.id}" value="${order.deliveryAddress || ""}" style="padding:8px 12px; width:260px; border-radius:var(--radius-sm); border:1px solid var(--line);" />
+              <button class="btn btn-primary" style="padding:8px 14px; font-size:0.85rem;" onclick="saveAddress(${order.id})">Save</button>
+              <button class="btn btn-secondary" style="padding:8px 14px; font-size:0.85rem;" onclick="cancelEdit(${order.id})">Cancel</button>
+            </div>
+
+            <button class="btn btn-secondary" style="font-size:0.82rem; padding:6px 14px;" onclick="toggleItems(${order.id})">
+              🛍️ View Itemized Basket (${items.length})
+            </button>
+            <div id="items-${order.id}" style="display:none; margin-top:12px; background:var(--cream); padding:12px 16px; border-radius:var(--radius); border:1px solid var(--line);">${itemsHtml}</div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <span class="status-badge ${(order.status || "").toLowerCase()}">● ${order.status}</span>
+            ${
+              order.status === "PENDING"
+                ? `<button class="btn btn-primary" style="padding:8px 16px; font-size:0.85rem;" onclick="payForOrder(${order.id}, ${order.totalAmount})">💳 Pay now</button>`
+                : ""
+            }
+            ${
+              editable
+                ? `<button class="btn btn-secondary" style="padding:8px 12px; font-size:0.85rem;" onclick="editAddress(${order.id})">✏️ Edit address</button>
+                   <button class="btn btn-danger" style="padding:8px 12px; font-size:0.85rem;" onclick="cancelOrder(${order.id})">Cancel</button>`
+                : ""
+            }
+          </div>
+        </div>`;
+        })
+        .join("");
+
+      initScrollReveal();
+    }
+
+    function toggleItems(orderId) {
+      const el = document.getElementById(`items-${orderId}`);
+      el.style.display = el.style.display === "none" ? "block" : "none";
+    }
+
+    function notifyStatusChanges(orders) {
+      const key = `seenOrderStatuses_${getUser().id}`;
+      const seen = JSON.parse(localStorage.getItem(key) || "{}");
+
+      orders.forEach((order) => {
+        const previous = seen[order.id];
+        if (previous && previous !== order.status) {
+          showModernToast("Order Status Update", `Order #${order.id} is now ${order.status}! 🚚`);
+        }
+        seen[order.id] = order.status;
+      });
+
+      localStorage.setItem(key, JSON.stringify(seen));
+    }
+
+    function payForOrder(orderId, amount) {
+      window.location.href = `payment.html?orderId=${orderId}&amount=${amount}`;
+    }
+
+    function editAddress(orderId) {
+      document.getElementById(`address-view-${orderId}`).style.display = "none";
+      document.getElementById(`address-edit-${orderId}`).style.display = "block";
+    }
+
+    function cancelEdit(orderId) {
+      document.getElementById(`address-view-${orderId}`).style.display = "inline";
+      document.getElementById(`address-edit-${orderId}`).style.display = "none";
+    }
+
+    async function saveAddress(orderId) {
+      const newAddress = document.getElementById(`address-input-${orderId}`).value.trim();
+      if (!newAddress) {
+        showModernToast("Required", "Delivery address cannot be empty.");
+        return;
+      }
+      try {
+        const order = await apiGetOrder(orderId);
+        order.deliveryAddress = newAddress;
+        await apiUpdateOrder(orderId, order);
+        showModernToast("Address Saved", "Delivery destination updated successfully.");
+        loadOrders();
+      } catch (err) {
+        showModernToast("Error", "Could not update address.");
+      }
+    }
+
+    async function cancelOrder(orderId) {
+      if (!confirm(`Cancel order #${orderId}? This cannot be undone.`)) return;
+      try {
+        await apiDeleteOrder(orderId);
+        showModernToast("Order Cancelled", `Order #${orderId} was cancelled.`);
+        loadOrders();
+      } catch (err) {
+        showModernToast("Error", "Could not cancel order.");
+      }
+    }
+
+    requireLogin();
+    loadOrders();
+</script>
+</body>
+</html>

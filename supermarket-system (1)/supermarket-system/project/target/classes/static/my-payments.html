@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FreshCart — My Payments</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="topnav">
+    <a href="index.html" class="brand">
+        <div class="brand-icon">🌿</div>
+        <div class="brand-text">Fresh<span>Cart</span></div>
+    </a>
+    <nav>
+        <a href="index.html">🛒 Products</a>
+        <a href="orders.html" data-roles="CUSTOMER">📦 My Orders</a>
+        <a href="my-payments.html" class="active" data-roles="CUSTOMER">💳 My Payments</a>
+        <a href="admin-orders.html" data-roles="ADMIN,STORE_MANAGER">📋 Manage Orders</a>
+        <a href="admin-payments.html" data-roles="ADMIN,STORE_MANAGER">💳 Manage Payments</a>
+        <a href="reports-dashboard.html" data-roles="ADMIN,STORE_MANAGER">📊 Analytics</a>
+        <a href="admin-users.html" data-roles="ADMIN">👥 Manage Users</a>
+        <a href="delivery-dashboard.html" data-roles="ADMIN,DELIVERY_STAFF">🛵 Deliveries</a>
+        <a href="cart.html" class="cart-pill" data-roles="CUSTOMER">
+            <span class="cart-pill-icon">🛍️</span>
+            <span>Cart</span>
+            <span id="cartCount">0</span>
+        </a>
+        <a href="profile.html">👤 Profile</a>
+        <a href="#" id="logoutBtn">Log out</a>
+    </nav>
+</div>
+
+<div class="page">
+    <div class="page-header reveal">
+        <h1>My Payments & Receipts 🧾</h1>
+        <p>Your complete transaction history and invoices for all orders.</p>
+    </div>
+
+    <div id="paymentsList" class="reveal"><p>Loading payments...</p></div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    async function loadPayments() {
+      const user = getUser();
+      const container = document.getElementById("paymentsList");
+
+      try {
+        const [orders, payments] = await Promise.all([apiGetOrders(user.id), apiGetPayments()]);
+        const myOrderIds = new Set(orders.map((o) => o.id));
+        const myPayments = payments.filter((p) => myOrderIds.has(p.orderId));
+
+        if (myPayments.length === 0) {
+          container.innerHTML = `<p class="empty-state">You haven't made any payments yet. When you complete an order, receipts appear here.</p>`;
+          return;
+        }
+
+        container.innerHTML = myPayments
+          .map(
+            (p) => `
+          <div class="order-card reveal">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-size:1.3rem;">💳</span>
+                <strong style="font-size:1.1rem; color:var(--forest-dark);">Payment #${p.id}</strong>
+              </div>
+              <div style="font-size:0.88rem; color:var(--slate); margin-top:4px;">
+                Associated with <strong>Order #${p.orderId}</strong> &nbsp;•&nbsp; Method: <strong>${p.method}</strong>
+              </div>
+              <div style="font-family:var(--font-display); font-size:1.15rem; font-weight:700; color:var(--forest-dark); margin-top:6px;">
+                Rs. ${Number(p.amount).toFixed(2)}
+              </div>
+            </div>
+            <span class="status-badge ${(p.status || "").toLowerCase()}">● ${p.status || "SUCCESS"}</span>
+          </div>`
+          )
+          .join("");
+        initScrollReveal();
+      } catch (err) {
+        container.innerHTML = `<p class="empty-state">Could not load payment records.</p>`;
+      }
+    }
+
+    requireLogin();
+    loadPayments();
+</script>
+</body>
+</html>

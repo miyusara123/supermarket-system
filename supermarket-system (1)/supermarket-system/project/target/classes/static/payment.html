@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FreshCart — Payment</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="topnav">
+    <a href="index.html" class="brand">
+        <div class="brand-icon">🌿</div>
+        <div class="brand-text">Fresh<span>Cart</span></div>
+    </a>
+    <nav>
+        <a href="index.html">🛒 Products</a>
+        <a href="orders.html" data-roles="CUSTOMER">📦 My Orders</a>
+        <a href="my-payments.html" data-roles="CUSTOMER">💳 My Payments</a>
+        <a href="admin-orders.html" data-roles="ADMIN,STORE_MANAGER">📋 Manage Orders</a>
+        <a href="admin-payments.html" data-roles="ADMIN,STORE_MANAGER">💳 Manage Payments</a>
+        <a href="reports-dashboard.html" data-roles="ADMIN,STORE_MANAGER">📊 Analytics</a>
+        <a href="admin-users.html" data-roles="ADMIN">👥 Manage Users</a>
+        <a href="delivery-dashboard.html" data-roles="ADMIN,DELIVERY_STAFF">🛵 Deliveries</a>
+        <a href="cart.html" class="cart-pill" data-roles="CUSTOMER">
+            <span class="cart-pill-icon">🛍️</span>
+            <span>Cart</span>
+            <span id="cartCount">0</span>
+        </a>
+        <a href="profile.html">👤 Profile</a>
+        <a href="#" id="logoutBtn">Log out</a>
+    </nav>
+</div>
+
+<div class="page">
+    <div class="page-header">
+        <h1>Payment Gateway 🔒</h1>
+        <p>Complete payment securely using credit/debit card, bank transfer, or cash on delivery.</p>
+    </div>
+
+    <!-- Payment form — no reveal class, always visible -->
+    <div class="auth-card" style="max-width:520px; margin:0 auto;">
+        <div class="field">
+            <label>Order Reference ID</label>
+            <input type="number" id="orderId" placeholder="e.g. 1001" required>
+        </div>
+        <div class="field">
+            <label>Total Amount (Rs.)</label>
+            <input type="number" id="amount" placeholder="e.g. 2500.00" required>
+        </div>
+        <div class="field">
+            <label>Payment Method</label>
+            <select id="method">
+                <option value="ONLINE">💳 Online Card / Instant Transfer</option>
+                <option value="ON_DELIVERY">💵 Cash / Card On Delivery</option>
+            </select>
+        </div>
+        <button id="payBtn" class="btn btn-primary btn-block" style="padding:14px; font-size:1rem;" onclick="processPayment()">
+            🔒 Complete Secure Payment
+        </button>
+        <p id="errorMsg" class="error-text" style="margin-top:10px;"></p>
+    </div>
+
+    <!-- Invoice receipt — shown after successful payment -->
+    <div id="invoiceBox" style="display:none; max-width:520px; margin:32px auto 0 auto;">
+        <div style="background:var(--white); border-radius:var(--radius); padding:28px; border:1px solid var(--line); box-shadow:var(--shadow-md);">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+                <span style="font-size:1.8rem;">🧾</span>
+                <div>
+                    <h3 style="margin:0;">Payment Invoice</h3>
+                    <span style="font-size:0.8rem; color:var(--emerald); font-weight:700;">TRANSACTION APPROVED ✓</span>
+                </div>
+            </div>
+
+            <div style="border-top:1px dashed var(--line); border-bottom:1px dashed var(--line); padding:16px 0; margin-bottom:18px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.9rem;">
+                    <span>Payment ID</span><strong id="invPaymentId"></strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.9rem;">
+                    <span>Order Ref</span><strong id="invOrderId"></strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.9rem;">
+                    <span>Amount Paid</span><strong id="invAmount" style="color:var(--forest-dark); font-size:1.05rem;"></strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:0.9rem;">
+                    <span>Method</span><strong id="invMethod"></strong>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <span style="font-weight:600;">Status:</span>
+                <span id="invStatus" class="status-badge delivered">SUCCESS</span>
+            </div>
+
+            <a href="orders.html" class="btn btn-primary btn-block" style="padding:12px; margin-bottom:8px;">
+                📦 View Order Status
+            </a>
+            <a href="index.html" class="btn btn-secondary btn-block">
+                🛒 Continue Shopping
+            </a>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    function prefillFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const orderId = params.get("orderId");
+      const amount  = params.get("amount");
+      if (orderId) document.getElementById("orderId").value = orderId;
+      if (amount)  document.getElementById("amount").value  = parseFloat(amount).toFixed(2);
+    }
+
+    async function processPayment() {
+      const orderId   = document.getElementById("orderId").value;
+      const amount    = document.getElementById("amount").value;
+      const method    = document.getElementById("method").value;
+      const errorMsg  = document.getElementById("errorMsg");
+      const btn       = document.getElementById("payBtn");
+      errorMsg.textContent = "";
+
+      if (!orderId || !amount || Number(amount) <= 0) {
+        errorMsg.textContent = "Please fill in a valid Order ID and Amount.";
+        return;
+      }
+
+      btn.textContent = "⏳ Processing...";
+      btn.disabled = true;
+
+      try {
+        const payment = await apiProcessPayment({
+          orderId: Number(orderId),
+          amount:  Number(amount),
+          method:  method,
+        });
+
+        document.getElementById("invPaymentId").textContent = "#" + payment.id;
+        document.getElementById("invOrderId").textContent   = "#" + payment.orderId;
+        document.getElementById("invAmount").textContent    = "Rs. " + Number(payment.amount).toFixed(2);
+        document.getElementById("invMethod").textContent    = payment.method;
+        document.getElementById("invStatus").textContent    = payment.status || "SUCCESS";
+
+        document.getElementById("invoiceBox").style.display = "block";
+        showModernToast("Payment Successful! 🎉", "Receipt #" + payment.id + " has been generated.");
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+
+        btn.textContent = "✓ Payment Complete";
+        btn.style.background = "linear-gradient(135deg,#065f46,#059669)";
+      } catch (err) {
+        errorMsg.textContent = "Payment could not be processed. Please try again.";
+        btn.textContent = "🔒 Complete Secure Payment";
+        btn.disabled = false;
+      }
+    }
+
+    requireLogin();
+    prefillFromQuery();
+</script>
+</body>
+</html>

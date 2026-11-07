@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FreshCart — Delivery Rider Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="topnav">
+    <a href="index.html" class="brand">
+        <div class="brand-icon">🌿</div>
+        <div class="brand-text">Fresh<span>Cart</span></div>
+    </a>
+    <nav>
+        <a href="index.html">🛒 Storefront</a>
+        <a href="delivery-dashboard.html" class="active" data-roles="ADMIN,DELIVERY_STAFF">🛵 My Deliveries</a>
+        <a href="admin-orders.html" data-roles="ADMIN,STORE_MANAGER">📋 Manage Orders</a>
+        <a href="admin-payments.html" data-roles="ADMIN,STORE_MANAGER">💳 Manage Payments</a>
+        <a href="reports-dashboard.html" data-roles="ADMIN,STORE_MANAGER">📊 Analytics</a>
+        <a href="admin-products.html" data-roles="ADMIN">⚙️ Manage Products</a>
+        <a href="admin-users.html" data-roles="ADMIN">👥 Manage Users</a>
+        <a href="profile.html">👤 Profile</a>
+        <a href="#" id="logoutBtn">Log out</a>
+    </nav>
+</div>
+
+<div class="page">
+    <div class="page-header reveal">
+        <h1>Delivery Route Dashboard 🛵</h1>
+        <p>Active route assignments, live destination addresses, and quick status handoffs.</p>
+    </div>
+
+    <div id="deliveriesList" class="reveal"><p>Loading delivery routes...</p></div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    const DELIVERY_STEPS = ["PACKED", "OUT_FOR_DELIVERY", "DELIVERED"];
+
+    async function loadDeliveries() {
+      const container = document.getElementById("deliveriesList");
+      try {
+        const deliveries = await apiGetDeliveries();
+
+        if (deliveries.length === 0) {
+          container.innerHTML = `<p class="empty-state">No deliveries assigned currently. Packed orders will appear here automatically.</p>`;
+          return;
+        }
+
+        container.innerHTML = deliveries
+          .map((d) => {
+            const options = DELIVERY_STEPS.map(
+              (s) => `<option value="${s}" ${s === d.status ? "selected" : ""}>${s}</option>`
+            ).join("");
+
+            return `
+            <div class="order-card reveal">
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:1.3rem;">📍</span>
+                  <strong style="font-size:1.1rem; color:var(--forest-dark);">Delivery #${d.id}</strong>
+                </div>
+                <div style="font-size:0.88rem; color:var(--slate); margin-top:4px;">
+                  For Order <strong>#${d.orderId}</strong> &nbsp;•&nbsp; Destination: <strong>${d.address || "Standard delivery address"}</strong>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span class="status-badge ${(d.status || "").toLowerCase()}">● ${d.status}</span>
+                <select id="status-${d.id}" class="sort-select" style="padding:8px 12px; font-size:0.85rem;">${options}</select>
+                <button class="btn btn-primary" style="padding:8px 14px; font-size:0.85rem;" onclick="changeDeliveryStatus(${d.id})">Update</button>
+              </div>
+            </div>`;
+          })
+          .join("");
+        initScrollReveal();
+      } catch (err) {
+        container.innerHTML = `<p class="empty-state">Could not load deliveries.</p>`;
+        console.error(err);
+      }
+    }
+
+    async function changeDeliveryStatus(id) {
+      const select = document.getElementById(`status-${id}`);
+      const newStatus = select.value;
+      try {
+        await apiUpdateDeliveryStatus(id, newStatus);
+        showModernToast("Delivery Updated", `Delivery #${id} is now ${newStatus}. 🚀`);
+        loadDeliveries();
+      } catch (err) {
+        showModernToast("Error", "Could not update status.");
+      }
+    }
+
+    requireRole("DELIVERY_STAFF");
+    loadDeliveries();
+</script>
+</body>
+</html>

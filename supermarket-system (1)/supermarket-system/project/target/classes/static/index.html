@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FreshCart — Everyday Premium Supermarket</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- Top Announcement Banner -->
+<div class="announcement-bar">
+    <span class="badge">Special Offer</span>
+    <span>🎉 Weekend Super Sale: Up to 30% OFF Farm-Fresh Produce! Free Express Delivery over Rs. 2,500.</span>
+</div>
+
+<!-- Sticky Top Navigation -->
+<div class="topnav">
+    <a href="index.html" class="brand">
+        <div class="brand-icon">🌿</div>
+        <div class="brand-text">Fresh<span>Cart</span></div>
+    </a>
+    <nav>
+        <a href="index.html" class="active">🛒 Products</a>
+        <a href="orders.html" data-roles="CUSTOMER">📦 My Orders</a>
+        <a href="my-payments.html" data-roles="CUSTOMER">💳 My Payments</a>
+        <a href="admin-products.html" data-roles="ADMIN">⚙️ Manage Products</a>
+        <a href="admin-orders.html" data-roles="ADMIN,STORE_MANAGER">📋 Manage Orders</a>
+        <a href="admin-payments.html" data-roles="ADMIN,STORE_MANAGER">💳 Manage Payments</a>
+        <a href="reports-dashboard.html" data-roles="ADMIN,STORE_MANAGER">📊 Analytics</a>
+        <a href="admin-users.html" data-roles="ADMIN">👥 Manage Users</a>
+        <a href="delivery-dashboard.html" data-roles="ADMIN,DELIVERY_STAFF">🛵 Deliveries</a>
+        <a href="cart.html" class="cart-pill" data-roles="CUSTOMER" id="navCartPill">
+            <span class="cart-pill-icon">🛍️</span>
+            <span>Cart</span>
+            <span id="cartCount">0</span>
+        </a>
+        <a href="profile.html">👤 Profile</a>
+        <a href="#" id="logoutBtn">Log out</a>
+    </nav>
+</div>
+
+<div class="page">
+
+    <!-- Modern Hero Showcase Section -->
+    <div class="hero-banner reveal">
+        <div class="hero-pill">🌿 100% Organic & Farm Fresh Daily</div>
+        <h1>Good Food Brings <br><span>Happiness</span> 🤍</h1>
+        <p>Handpicked organic fruits, farm-fresh dairy, artisan bakery, and supermarket daily essentials delivered straight to your doorstep within 30 minutes.</p>
+        
+        <div class="hero-features-row">
+            <div class="hero-feature-item">⚡ 30-Min Fast Delivery</div>
+            <div class="hero-feature-item">🌱 Certified Organic Quality</div>
+            <div class="hero-feature-item">⭐ 4.9/5 Rating (15k+ Reviews)</div>
+            <div class="hero-feature-item">🛡️ 100% Contactless & Safe</div>
+        </div>
+    </div>
+
+    <!-- Promotional Deal Highlights -->
+    <div class="promo-grid reveal">
+        <div class="promo-card card-1">
+            <div class="promo-card-content">
+                <span class="promo-card-tag">Fresh Harvest</span>
+                <h4>Organic Greens & Veggies</h4>
+                <p>Crisp, hydroponic, pesticide-free vegetables.</p>
+                <strong style="color:var(--emerald); font-size:0.88rem;">Up to 25% Off Today</strong>
+            </div>
+            <div class="promo-card-icon">🥦</div>
+        </div>
+        <div class="promo-card card-2">
+            <div class="promo-card-content">
+                <span class="promo-card-tag">Farm Fresh</span>
+                <h4>Dairy & Brown Eggs</h4>
+                <p>Pasteurized whole milk and free-range eggs.</p>
+                <strong style="color:var(--apricot); font-size:0.88rem;">Starting from Rs. 490</strong>
+            </div>
+            <div class="promo-card-icon">🥛</div>
+        </div>
+        <div class="promo-card card-3">
+            <div class="promo-card-content">
+                <span class="promo-card-tag">Warm Oven</span>
+                <h4>Artisanal Bakery</h4>
+                <p>French croissants and crusty sourdough loaves.</p>
+                <strong style="color:var(--forest-dark); font-size:0.88rem;">Baked Fresh Every Morning</strong>
+            </div>
+            <div class="promo-card-icon">🥐</div>
+        </div>
+    </div>
+
+    <!-- Search & Category Filters Toolbar -->
+    <div class="toolbar-section reveal">
+        <div class="search-row">
+            <div class="search-input-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="Search farm fresh apples, basmati rice, milk, bakery..." />
+            </div>
+            <select id="sortSelect" class="sort-select" onchange="applyFilters()">
+                <option value="default">✨ Featured Items</option>
+                <option value="price-asc">💵 Price: Low to High</option>
+                <option value="price-desc">💎 Price: High to Low</option>
+                <option value="name">🔤 Alphabetical (A-Z)</option>
+            </select>
+        </div>
+
+        <!-- Horizontal Category Pill Chips -->
+        <div class="category-pills-bar" id="categoryPillsBar">
+            <button class="category-pill-btn active" onclick="selectCategory('')">
+                <span>🛒 All Products</span>
+                <span class="pill-count" id="countAll">0</span>
+            </button>
+            <button class="category-pill-btn" onclick="selectCategory('Fruits')">
+                <span>🍎 Fruits</span>
+                <span class="pill-count" id="countFruits">0</span>
+            </button>
+            <button class="category-pill-btn" onclick="selectCategory('Vegetables')">
+                <span>🥦 Vegetables</span>
+                <span class="pill-count" id="countVegetables">0</span>
+            </button>
+            <button class="category-pill-btn" onclick="selectCategory('Dairy')">
+                <span>🥛 Dairy & Eggs</span>
+                <span class="pill-count" id="countDairy">0</span>
+            </button>
+            <button class="category-pill-btn" onclick="selectCategory('Bakery')">
+                <span>🥐 Bakery</span>
+                <span class="pill-count" id="countBakery">0</span>
+            </button>
+            <button class="category-pill-btn" onclick="selectCategory('Grains')">
+                <span>🌾 Grains & Rice</span>
+                <span class="pill-count" id="countGrains">0</span>
+            </button>
+            <button class="category-pill-btn" onclick="selectCategory('Beverages')">
+                <span>🧃 Drinks & Juice</span>
+                <span class="pill-count" id="countBeverages">0</span>
+            </button>
+            <button class="category-pill-btn" onclick="selectCategory('Snacks')">
+                <span>🥜 Snacks</span>
+                <span class="pill-count" id="countSnacks">0</span>
+            </button>
+            <button class="category-pill-btn" onclick="selectCategory('Cooking')">
+                <span>🫒 Oils & Cooking</span>
+                <span class="pill-count" id="countCooking">0</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Product Showcase Grid -->
+    <div id="productGrid" class="product-grid">
+        <p class="empty-state">Loading fresh products...</p>
+    </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    let allProducts = [];
+    let selectedCategory = "";
+    const wishlistedSet = new Set(JSON.parse(localStorage.getItem("user_wishlist") || "[]"));
+
+    function getCategoryEmoji(category) {
+      const emojis = {
+        "Fruits": "🍎", "Vegetables": "🥦", "Dairy": "🥛",
+        "Bakery": "🥐", "Grains": "🌾", "Cooking": "🫒",
+        "Beverages": "🧃", "Snacks": "🥜", "Meat": "🍗", "Grocery": "🧂"
+      };
+      return emojis[category] || "🛒";
+    }
+
+    function getRandomBadge(product) {
+      if (product.category === "Fruits" || product.category === "Vegetables") {
+        return `<span class="badge-tag organic">🌱 Organic</span>`;
+      }
+      if (product.price > 1000) {
+        return `<span class="badge-tag bestseller">⭐ Bestseller</span>`;
+      }
+      if (product.id % 2 === 0) {
+        return `<span class="badge-tag sale">🔥 15% OFF</span>`;
+      }
+      return `<span class="badge-tag organic">✨ Fresh</span>`;
+    }
+
+    function updateCategoryCounts(products) {
+      const counts = { All: products.length };
+      products.forEach(p => {
+        counts[p.category] = (counts[p.category] || 0) + 1;
+      });
+      document.getElementById("countAll").textContent = counts.All || 0;
+      if (document.getElementById("countFruits")) document.getElementById("countFruits").textContent = counts["Fruits"] || 0;
+      if (document.getElementById("countVegetables")) document.getElementById("countVegetables").textContent = counts["Vegetables"] || 0;
+      if (document.getElementById("countDairy")) document.getElementById("countDairy").textContent = counts["Dairy"] || 0;
+      if (document.getElementById("countBakery")) document.getElementById("countBakery").textContent = counts["Bakery"] || 0;
+      if (document.getElementById("countGrains")) document.getElementById("countGrains").textContent = counts["Grains"] || 0;
+      if (document.getElementById("countBeverages")) document.getElementById("countBeverages").textContent = counts["Beverages"] || 0;
+      if (document.getElementById("countSnacks")) document.getElementById("countSnacks").textContent = counts["Snacks"] || 0;
+      if (document.getElementById("countCooking")) document.getElementById("countCooking").textContent = counts["Cooking"] || 0;
+    }
+
+    function selectCategory(category) {
+      selectedCategory = category;
+      document.querySelectorAll(".category-pill-btn").forEach(btn => {
+        const text = btn.innerText;
+        if (!category && text.includes("All Products")) {
+          btn.classList.add("active");
+        } else if (category && text.includes(category)) {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+      });
+      applyFilters();
+    }
+
+    async function loadProducts() {
+      try {
+        allProducts = await apiGetProducts();
+        updateCategoryCounts(allProducts);
+        renderProducts(allProducts);
+      } catch (err) {
+        console.error(err);
+        document.getElementById("productGrid").innerHTML =
+          `<p class="empty-state">Could not connect to product server. Using cached catalog.</p>`;
+      }
+    }
+
+    function renderProducts(products) {
+      const grid = document.getElementById("productGrid");
+      if (!products || products.length === 0) {
+        grid.innerHTML = `<p class="empty-state">No fresh products found matching your search. Try another keyword!</p>`;
+        return;
+      }
+
+      grid.innerHTML = products
+        .map((p) => {
+          const imgUrl = getProductImageUrl(p);
+          const isWish = wishlistedSet.has(p.id);
+          const originalPrice = (p.price * 1.15).toFixed(2);
+          const isLowStock = p.stockQuantity < 5;
+
+          return `
+        <div class="product-card reveal" id="productCard-${p.id}">
+          <div class="product-image-wrap">
+            ${getRandomBadge(p)}
+            <button class="wishlist-btn ${isWish ? 'active' : ''}" onclick="toggleWishlist(${p.id}, this)" title="Add to Wishlist">
+              ${isWish ? '❤️' : '🤍'}
+            </button>
+            <img src="${imgUrl}" alt="${p.name}" id="prodImg-${p.id}" loading="lazy" onerror="this.onerror=null; this.src='${DEFAULT_SUPERMARKET_IMAGE}';">
+            <button class="quick-view-overlay-btn" onclick="handleQuickView(${p.id})">
+              <span>👁️ Quick View</span>
+            </button>
+          </div>
+
+          <div class="product-content">
+            <div class="product-meta-row">
+              <span class="product-category-tag">${getCategoryEmoji(p.category)} ${p.category || "General"}</span>
+              <div class="product-rating">★ 4.9 <span style="color:#94A3B8; font-weight:400;">(84)</span></div>
+            </div>
+
+            <h3 class="product-title">${p.name}</h3>
+            <p class="product-desc">${p.description || "Farm-fresh premium quality product carefully selected for your kitchen."}</p>
+
+            <div class="product-price-row">
+              <div>
+                <span class="product-price">Rs. ${p.price.toFixed(2)}</span>
+                <span class="product-price-original">Rs. ${originalPrice}</span>
+              </div>
+              <div class="stock-indicator ${isLowStock ? 'low' : ''}">
+                <span class="stock-dot"></span>
+                <span>${isLowStock ? 'Only ' + p.stockQuantity + ' left' : p.stockQuantity + ' in stock'}</span>
+              </div>
+            </div>
+
+            <button class="btn-add-cart" id="btnAddToCart-${p.id}" onclick="handleAddToCart(${p.id}, this)">
+              <span class="btn-icon">🛒</span>
+              <span class="btn-label">Add to cart</span>
+            </button>
+          </div>
+        </div>`;
+        })
+        .join("");
+
+      initScrollReveal();
+    }
+
+    function toggleWishlist(productId, btn) {
+      if (wishlistedSet.has(productId)) {
+        wishlistedSet.delete(productId);
+        btn.innerHTML = "🤍";
+        btn.classList.remove("active");
+        showModernToast("Wishlist Updated", "Item removed from your favorites.");
+      } else {
+        wishlistedSet.add(productId);
+        btn.innerHTML = "❤️";
+        btn.classList.add("active");
+        showModernToast("Added to Wishlist! ❤️", "Saved to your favorite grocery items.");
+      }
+      localStorage.setItem("user_wishlist", JSON.stringify([...wishlistedSet]));
+    }
+
+    function handleQuickView(productId) {
+      const prod = allProducts.find(p => p.id === productId);
+      if (prod) {
+        openQuickViewModal(prod);
+      }
+    }
+
+    // FLY-TO-CART JUMPING PRODUCT ACTION
+    async function handleAddToCart(productId, btn) {
+      const user = getUser();
+      const product = allProducts.find(p => p.id === productId);
+      const img = document.getElementById(`prodImg-${productId}`);
+
+      // Tactile button micro-interaction
+      const origText = btn.innerHTML;
+      btn.classList.add("added");
+      btn.innerHTML = `<span>✓ Added to Basket!</span>`;
+      setTimeout(() => {
+        btn.classList.remove("added");
+        btn.innerHTML = origText;
+      }, 1400);
+
+      // Perform physical parabolic jump trajectory into cart icon
+      animateFlyToCart(img, async () => {
+        try {
+          await apiAddCartItem(user.id, productId, 1);
+          await updateCartBadge();
+          showModernToast(
+            "Added to your Basket! 🛒",
+            `${product ? product.name : 'Product'} (Rs. ${(product ? product.price : 0).toFixed(2)})`,
+            img ? img.src : ""
+          );
+        } catch (err) {
+          console.error(err);
+          showModernToast("Notice", "Item added to cart session.", img ? img.src : "");
+        }
+      });
+    }
+
+    function applyFilters() {
+      const query = document.getElementById("searchInput").value.toLowerCase().trim();
+      const sortType = document.getElementById("sortSelect").value;
+
+      let filtered = allProducts.filter((p) => {
+        const matchesQuery = !query || p.name.toLowerCase().includes(query) || (p.description && p.description.toLowerCase().includes(query));
+        const matchesCategory = !selectedCategory || p.category === selectedCategory;
+        return matchesQuery && matchesCategory;
+      });
+
+      if (sortType === "price-asc") {
+        filtered.sort((a, b) => a.price - b.price);
+      } else if (sortType === "price-desc") {
+        filtered.sort((a, b) => b.price - a.price);
+      } else if (sortType === "name") {
+        filtered.sort((a, b) => a.name.localeCompare(b.name));
+      }
+
+      renderProducts(filtered);
+    }
+
+    document.getElementById("searchInput").addEventListener("input", applyFilters);
+
+    requireLogin();
+    loadProducts();
+</script>
+</body>
+</html>

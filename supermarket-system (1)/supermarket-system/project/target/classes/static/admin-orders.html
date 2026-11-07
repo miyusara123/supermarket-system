@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FreshCart — Manage Orders</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <style>
+        .pdf-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: #fff; border: none; border-radius: 10px;
+            padding: 11px 22px; font-size: 0.88rem; font-weight: 700;
+            font-family: inherit; cursor: pointer;
+            box-shadow: 0 4px 14px rgba(220,38,38,0.3); transition: all 0.2s;
+        }
+        .pdf-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(220,38,38,0.4); }
+        .pdf-btn:disabled { background: #94a3b8; cursor: not-allowed; transform: none; box-shadow: none; }
+        .pdf-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+        .page-header-row {
+            display: flex; align-items: flex-start;
+            justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 24px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="topnav">
+    <a href="index.html" class="brand">
+        <div class="brand-icon">🌿</div>
+        <div class="brand-text">Fresh<span>Cart</span></div>
+    </a>
+    <nav>
+        <a href="index.html">🛒 Storefront</a>
+        <a href="admin-products.html" data-roles="ADMIN">⚙️ Manage Products</a>
+        <a href="orders.html" data-roles="CUSTOMER">📦 My Orders</a>
+        <a href="admin-orders.html" class="active" data-roles="ADMIN,STORE_MANAGER">📋 Manage Orders</a>
+        <a href="admin-payments.html" data-roles="ADMIN,STORE_MANAGER">💳 Manage Payments</a>
+        <a href="reports-dashboard.html" data-roles="ADMIN,STORE_MANAGER">📊 Analytics</a>
+        <a href="admin-users.html" data-roles="ADMIN">👥 Manage Users</a>
+        <a href="delivery-dashboard.html" data-roles="ADMIN,DELIVERY_STAFF">🛵 Deliveries</a>
+        <a href="profile.html">👤 Profile</a>
+        <a href="#" id="logoutBtn">Log out</a>
+    </nav>
+</div>
+
+<div class="page">
+    <div class="page-header-row">
+        <div>
+            <h1 style="font-family:var(--font-display);font-size:1.9rem;color:var(--forest-dark);margin:0;">
+                Manage Customer Orders 📋
+            </h1>
+            <p style="color:var(--slate);margin:4px 0 0;font-size:0.9rem;">
+                Update order status, track packaging, and hand off to delivery riders.
+            </p>
+        </div>
+        <button class="pdf-btn" id="downloadOrdersBtn" onclick="downloadOrdersPDF()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/>
+                <polyline points="9 15 12 18 15 15"/>
+            </svg>
+            Download Orders PDF
+        </button>
+    </div>
+
+    <div id="ordersList"><p>Loading orders...</p></div>
+</div>
+
+<script src="script.js"></script>
+<script>
+"use strict";
+const STATUS_STEPS = ["PENDING","PACKED","OUT_FOR_DELIVERY","DELIVERED","CANCELLED"];
+let _allOrders = [];
+
+/* ============================================================
+   LOAD ORDERS
+============================================================ */
+async function loadOrders() {
+    const container = document.getElementById("ordersList");
+    try {
+        const orders = await apiGetOrders();
+        _allOrders = orders;
+
+        if (!orders.length) {
+            container.innerHTML = `<p class="empty-state">No active orders yet.</p>`;
+            return;
+        }
+
+        container.innerHTML = orders.map(order => {
+            const options = STATUS_STEPS.map(s=>
+                `<option value="${s}" ${s===order.status?"selected":""}>${s}</option>`
+            ).join("");
+
+            const dateStr = order.orderDate
+                ? new Date(order.orderDate).toLocaleDateString() : "";
+
+            return `
+            <div class="order-card reveal">
+              <div>
+                <strong style="font-size:1.1rem;color:var(--forest-dark);">Order #${order.id}</strong>
+                <div style="font-size:0.88rem;color:var(--slate);margin-top:4px;">
+                  📍 ${order.deliveryAddress||"Standard address"} &nbsp;•&nbsp;
+                  <strong style="color:var(--forest-dark);">Rs. ${(order.totalAmount||0).toFixed(2)}</strong>
+                  ${dateStr ? "&nbsp;•&nbsp; "+dateStr : ""}
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span class="status-badge ${(order.status||"").toLowerCase()}">● ${order.status}</span>
+                <select id="status-${order.id}" class="sort-select" style="padding:8px 12px;font-size:0.85rem;">${options}</select>
+                <button class="btn btn-primary" style="padding:8px 14px;font-size:0.85rem;" onclick="changeStatus(${order.id})">Update Status</button>
+                <button class="btn btn-danger"  style="padding:8px 12px;font-size:0.85rem;" onclick="removeOrder(${order.id})">Delete</button>
+                ${["PACKED","OUT_FOR_DELIVERY"].includes(order.status)
+                    ? `<button class="btn btn-secondary" style="padding:8px 12px;font-size:0.85rem;" onclick="cancelDelivery(${order.id})">Cancel Delivery</button>`
+                    : ""}
+              </div>
+            </div>`;
+        }).join("");
+
+        initScrollReveal();
+    } catch(e) {
+        container.innerHTML = `<p class="empty-state">Could not load orders.</p>`;
+        console.error(e);
+    }
+}
+
+async function changeStatus(orderId) {
+    const sel = document.getElementById("status-"+orderId);
+    const newStatus = sel.value;
+    try {
+        const order = await apiUpdateOrderStatus(orderId, newStatus);
+        if (newStatus==="PACKED") {
+            const existing = await apiGetDeliveries();
+            if (!existing.some(d=>d.orderId===orderId))
+                await apiCreateDelivery({orderId, address: order.deliveryAddress});
+        }
+        showModernToast("Status Updated", `Order #${orderId} → ${newStatus}`);
+        loadOrders();
+    } catch(e) { showModernToast("Error","Could not update status."); }
+}
+
+async function removeOrder(orderId) {
+    if (!confirm(`Delete order #${orderId}? This cannot be undone.`)) return;
+    try {
+        await apiDeleteOrder(orderId);
+        showModernToast("Deleted",`Order #${orderId} removed.`);
+        loadOrders();
+    } catch(e) { showModernToast("Error","Could not delete order."); }
+}
+
+async function cancelDelivery(orderId) {
+    if (!confirm(`Cancel delivery for order #${orderId}?`)) return;
+    try {
+        const deliveries = await apiGetDeliveries();
+        const match = deliveries.find(d=>d.orderId===orderId);
+        if (!match) { showModernToast("Notice","No delivery record found."); return; }
+        await apiDeleteDelivery(match.id);
+        await apiUpdateOrderStatus(orderId,"PENDING");
+        showModernToast("Delivery Cancelled",`Order #${orderId} reset to PENDING.`);
+        loadOrders();
+    } catch(e) { showModernToast("Error","Could not cancel delivery."); }
+}
+
+/* ============================================================
+   PDF TABLE HELPER (pure jsPDF, no plugin needed)
+============================================================ */
+function drawPdfTable(doc, y, headers, rows, colWidths, margin, opts={}) {
+    const rowH=opts.rowH||8, headH=opts.headH||9, fs=opts.fontSize||8.5;
+    const headClr=opts.headColor||[22,101,52];
+    const altClr=opts.altColor||[240,253,244];
+    const totalW=colWidths.reduce((a,b)=>a+b,0);
+    const PH=doc.internal.pageSize.getHeight();
+
+    // Header row
+    doc.setFillColor(...headClr);
+    doc.rect(margin, y, totalW, headH, "F");
+    doc.setTextColor(255,255,255);
+    doc.setFont("helvetica","bold").setFontSize(fs);
+    let cx=margin;
+    headers.forEach((h,i)=>{
+        doc.text(String(h), cx+2, y+headH-2);
+        cx+=colWidths[i];
+    });
+    y+=headH;
+
+    // Data rows
+    rows.forEach((row, ri)=>{
+        if (y+rowH>PH-14) {
+            doc.addPage(); y=20;
+            // Repeat header on new page
+            doc.setFillColor(...headClr);
+            doc.rect(margin, y, totalW, headH, "F");
+            doc.setTextColor(255,255,255);
+            doc.setFont("helvetica","bold").setFontSize(fs);
+            cx=margin;
+            headers.forEach((h,i)=>{ doc.text(String(h),cx+2,y+headH-2); cx+=colWidths[i]; });
+            y+=headH;
+        }
+        if (ri%2===0) { doc.setFillColor(...altClr); doc.rect(margin,y,totalW,rowH,"F"); }
+        doc.setDrawColor(226,232,240);
+        doc.rect(margin,y,totalW,rowH,"S");
+
+        cx=margin;
+        row.forEach((cell,ci)=>{
+            const s=String(cell??"-");
+            doc.setFont("helvetica","normal").setFontSize(fs).setTextColor(30,41,59);
+            if (ci===opts.statusCol) {
+                if (s==="DELIVERED")       doc.setTextColor(22,163,74);
+                else if (s==="CANCELLED")  doc.setTextColor(220,38,38);
+                else if (s==="PENDING")    doc.setTextColor(217,119,6);
+                else if (s==="PACKED"||s==="OUT_FOR_DELIVERY") doc.setTextColor(37,99,235);
+                doc.setFont("helvetica","bold");
+            }
+            // Truncate
+            const maxCh=Math.floor((colWidths[ci]-4)/2.0);
+            doc.text(s.length>maxCh ? s.substring(0,maxCh)+"…" : s, cx+2, y+rowH-2);
+            cx+=colWidths[ci];
+        });
+        y+=rowH;
+    });
+    return y+4;
+}
+
+/* ============================================================
+   DOWNLOAD ORDERS PDF
+============================================================ */
+async function downloadOrdersPDF() {
+    const btn = document.getElementById("downloadOrdersBtn");
+
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        showModernToast("PDF Error","PDF library not ready. Check internet & refresh page.");
+        return;
+    }
+
+    btn.disabled=true;
+    btn.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Generating...`;
+
+    try {
+        const { jsPDF } = window.jspdf;
+        // Landscape A4
+        const doc = new jsPDF({ orientation:"landscape", unit:"mm", format:"a4" });
+        const PW=doc.internal.pageSize.getWidth();   // 297
+        const PH=doc.internal.pageSize.getHeight();  // 210
+        const M=14;
+        const CW=PW-M*2;
+        let y=0;
+
+        /* ── HEADER ── */
+        doc.setFillColor(22,101,52);
+        doc.rect(0,0,PW,34,"F");
+        doc.setTextColor(255,255,255);
+        doc.setFont("helvetica","bold").setFontSize(18);
+        doc.text("FreshCart",M,13);
+        doc.setFont("helvetica","normal").setFontSize(10);
+        doc.text("Customer Orders Report",M,21);
+        doc.setFontSize(8);
+        doc.text("Generated: "+new Date().toLocaleString(),M,28);
+        doc.text("By: "+((getUser()||{}).name||"Admin"),PW-M,28,{align:"right"});
+        y=40;
+
+        /* ── KPI SUMMARY STRIP ── */
+        const orders=_allOrders;
+        const total=orders.reduce((s,o)=>s+(o.totalAmount||0),0);
+        const sGroups={};
+        orders.forEach(o=>{ sGroups[o.status]=(sGroups[o.status]||0)+1; });
+        const avg=orders.length>0?(total/orders.length).toFixed(2):"0.00";
+
+        const kpis=[
+            ["Total Orders",   String(orders.length)],
+            ["Total Revenue",  "Rs. "+total.toFixed(2)],
+            ["Avg Order Value","Rs. "+avg],
+            ["Pending",        String(sGroups["PENDING"]||0)],
+            ["Delivered",      String(sGroups["DELIVERED"]||0)],
+            ["Cancelled",      String(sGroups["CANCELLED"]||0)],
+        ];
+        const bw=(CW-kpis.length*4)/kpis.length, bh=16;
+        kpis.forEach(([lbl,val],i)=>{
+            const bx=M+i*(bw+4);
+            doc.setFillColor(248,250,252).setDrawColor(226,232,240);
+            doc.roundedRect(bx,y,bw,bh,2,2,"FD");
+            doc.setFont("helvetica","normal").setFontSize(6).setTextColor(100,116,139);
+            doc.text(lbl.toUpperCase(),bx+3,y+5.5);
+            doc.setFont("helvetica","bold").setFontSize(10).setTextColor(22,101,52);
+            doc.text(val,bx+3,y+13);
+        });
+        y+=bh+8;
+
+        /* ── ORDERS TABLE ── */
+        doc.setFont("helvetica","bold").setFontSize(12).setTextColor(22,101,52);
+        doc.text("All Orders",M,y);
+        y+=4;
+
+        if (!orders.length) {
+            doc.setFont("helvetica","normal").setFontSize(9).setTextColor(100,116,139);
+            doc.text("No orders found.",M,y+8);
+        } else {
+            const rows=orders.map(o=>[
+                "#"+o.id,
+                String(o.userId||"—"),
+                o.deliveryAddress||"—",
+                o.status||"—",
+                "Rs. "+(o.totalAmount||0).toFixed(2),
+                o.orderDate?new Date(o.orderDate).toLocaleDateString():"—",
+            ]);
+            drawPdfTable(doc,y,
+                ["Order ID","User","Delivery Address","Status","Amount","Date"],
+                rows,[22,18,90,36,32,28],M,
+                {statusCol:3, headColor:[22,101,52]});
+        }
+
+        /* ── FOOTERS ── */
+        const totalPgs=doc.internal.getNumberOfPages();
+        for (let i=1;i<=totalPgs;i++){
+            doc.setPage(i);
+            doc.setFillColor(248,250,252).rect(0,PH-10,PW,10,"F");
+            doc.setFont("helvetica","normal").setFontSize(7).setTextColor(100,116,139);
+            doc.text("FreshCart — Orders Report (Confidential)",M,PH-3);
+            doc.text(`Page ${i} of ${totalPgs}`,PW-M,PH-3,{align:"right"});
+        }
+
+        const dateStr=new Date().toISOString().slice(0,10);
+        doc.save("FreshCart_Orders_"+dateStr+".pdf");
+        showModernToast("PDF Downloaded! 📄","Orders report saved to your device.");
+
+    } catch(err) {
+        console.error("PDF error:", err);
+        showModernToast("PDF Error","Error: "+err.message);
+    } finally {
+        btn.disabled=false;
+        btn.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg> Download Orders PDF`;
+    }
+}
+
+requireStaff();
+loadOrders();
+</script>
+</body>
+</html>

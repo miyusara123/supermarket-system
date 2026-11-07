@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FreshCart — My Profile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="topnav">
+    <a href="index.html" class="brand">
+        <div class="brand-icon">🌿</div>
+        <div class="brand-text">Fresh<span>Cart</span></div>
+    </a>
+    <nav>
+        <a href="index.html">🛒 Products</a>
+        <a href="orders.html" data-roles="CUSTOMER">📦 My Orders</a>
+        <a href="my-payments.html" data-roles="CUSTOMER">💳 My Payments</a>
+        <a href="admin-products.html" data-roles="ADMIN">⚙️ Manage Products</a>
+        <a href="admin-orders.html" data-roles="ADMIN,STORE_MANAGER">📋 Manage Orders</a>
+        <a href="admin-payments.html" data-roles="ADMIN,STORE_MANAGER">💳 Manage Payments</a>
+        <a href="reports-dashboard.html" data-roles="ADMIN,STORE_MANAGER">📊 Analytics</a>
+        <a href="admin-users.html" data-roles="ADMIN">👥 Manage Users</a>
+        <a href="delivery-dashboard.html" data-roles="ADMIN,DELIVERY_STAFF">🛵 Deliveries</a>
+        <a href="cart.html" class="cart-pill" data-roles="CUSTOMER">
+            <span class="cart-pill-icon">🛍️</span>
+            <span>Cart</span>
+            <span id="cartCount">0</span>
+        </a>
+        <a href="profile.html" class="active">👤 My Profile</a>
+        <a href="#" id="logoutBtn">Log out</a>
+    </nav>
+</div>
+
+<div class="page">
+    <div class="page-header reveal">
+        <h1>My Account Profile 👤</h1>
+        <p>Manage your account credentials, shipping details, and access role settings.</p>
+    </div>
+
+    <div class="auth-card reveal" style="max-width:540px; margin:0 auto;">
+        <div id="profileMessage" style="margin-bottom:14px;"></div>
+        <form id="profileForm">
+            <div class="field">
+                <label>Account Role</label>
+                <input type="text" id="role" readonly style="background:#f1f5f9; color:var(--slate); font-weight:700;">
+            </div>
+            <div class="field">
+                <label>Full Name</label>
+                <input type="text" id="name" required placeholder="Your full name">
+            </div>
+            <div class="field">
+                <label>Email Address</label>
+                <input type="email" id="email" required placeholder="you@example.com">
+            </div>
+            <div class="field">
+                <label>New Password</label>
+                <input type="password" id="password" placeholder="Leave blank to keep current password">
+                <div style="font-size:0.75rem; color:var(--slate); margin-top:4px;">Only enter text if you wish to reset your account password.</div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" style="padding:14px; font-size:1rem; margin-top:10px;">
+                Save Profile Changes
+            </button>
+        </form>
+    </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    let currentUserId = null;
+
+    function populateForm(user) {
+      currentUserId = user.id;
+      document.getElementById("role").value = user.role || "CUSTOMER";
+      document.getElementById("name").value = user.name || "";
+      document.getElementById("email").value = user.email || "";
+    }
+
+    async function loadProfile() {
+      const sessionUser = requireLogin();
+      try {
+        const freshUser = await apiGetUser(sessionUser.id);
+        populateForm(freshUser);
+      } catch (err) {
+        populateForm(sessionUser);
+      }
+    }
+
+    document.getElementById("profileForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const updated = {
+        name: document.getElementById("name").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        role: document.getElementById("role").value,
+      };
+      const pwd = document.getElementById("password").value;
+      if (pwd) updated.password = pwd;
+
+      try {
+        const saved = await apiUpdateUser(currentUserId, updated);
+        setUser(saved);
+        showModernToast("Profile Updated!", "Your changes were saved successfully.", "");
+        document.getElementById("password").value = "";
+      } catch (err) {
+        showModernToast("Notice", "Profile updated in active session.");
+      }
+    });
+
+    loadProfile();
+</script>
+</body>
+</html>

@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FreshCart — Store Analytics & Reports</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jsPDF only — no autotable needed -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <style>
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 18px; margin-bottom: 32px; }
+        .stat-box { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px; box-shadow: var(--shadow-sm); }
+        .stat-box .label { font-size: 0.78rem; color: var(--slate); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
+        .stat-box .value { font-family: var(--font-display); font-size: 1.9rem; color: var(--forest-dark); margin-top: 6px; font-weight: 700; }
+        .section-title { font-family: var(--font-display); font-size: 1.25rem; color: var(--forest-dark); margin: 32px 0 16px 0; display: flex; justify-content: space-between; align-items: center; }
+        .charts-grid { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 24px; }
+        .chart-card { flex: 1; min-width: 300px; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow-sm); }
+        .chart-card h3 { margin: 0 0 16px 0; font-size: 1rem; font-weight: 700; color: var(--forest-dark); }
+        .pdf-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: #fff; border: none; border-radius: 10px;
+            padding: 11px 22px; font-size: 0.88rem; font-weight: 700;
+            font-family: inherit; cursor: pointer;
+            box-shadow: 0 4px 14px rgba(220,38,38,0.3);
+            transition: all 0.2s;
+        }
+        .pdf-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(220,38,38,0.4); }
+        .pdf-btn:disabled { background: #94a3b8; cursor: not-allowed; transform: none; box-shadow: none; }
+        .pdf-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+        .report-header-row { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 6px; }
+    </style>
+</head>
+<body>
+
+<div class="topnav">
+    <a href="index.html" class="brand">
+        <div class="brand-icon">🌿</div>
+        <div class="brand-text">Fresh<span>Cart</span></div>
+    </a>
+    <nav>
+        <a href="index.html">🛒 Storefront</a>
+        <a href="admin-orders.html" data-roles="ADMIN,STORE_MANAGER">📋 Manage Orders</a>
+        <a href="admin-payments.html" data-roles="ADMIN,STORE_MANAGER">💳 Manage Payments</a>
+        <a href="reports-dashboard.html" class="active" data-roles="ADMIN,STORE_MANAGER">📊 Analytics</a>
+        <a href="admin-products.html" data-roles="ADMIN">⚙️ Manage Products</a>
+        <a href="admin-users.html" data-roles="ADMIN">👥 Manage Users</a>
+        <a href="delivery-dashboard.html" data-roles="ADMIN,DELIVERY_STAFF">🛵 Deliveries</a>
+        <a href="profile.html">👤 Profile</a>
+        <a href="#" id="logoutBtn">Log out</a>
+    </nav>
+</div>
+
+<div class="page">
+    <div class="report-header-row">
+        <div>
+            <h1 style="font-family:var(--font-display);font-size:1.9rem;color:var(--forest-dark);margin:0;">
+                Store Performance &amp; Analytics 📊
+            </h1>
+            <p style="color:var(--slate);margin:4px 0 0;font-size:0.9rem;">
+                Live inventory statistics, sales turnover, order pipeline, and low-stock alerts.
+            </p>
+        </div>
+        <button class="pdf-btn" id="downloadReportBtn" onclick="downloadFullReport()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/>
+                <polyline points="9 15 12 18 15 15"/>
+            </svg>
+            Download PDF Report
+        </button>
+    </div>
+
+    <div id="statsArea" style="margin-top:24px;"><p>Loading analytics...</p></div>
+
+    <div class="section-title"><span>Operational Analytics</span></div>
+    <div class="charts-grid">
+        <div class="chart-card">
+            <h3>Orders by Status</h3>
+            <canvas id="statusChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>Inventory Stock Levels</h3>
+            <canvas id="stockChart"></canvas>
+        </div>
+    </div>
+
+    <div class="section-title">
+        <span>Low Stock Threshold Alerts</span>
+        <button class="btn btn-secondary" onclick="scanNow()">🔍 Scan Catalog Now</button>
+    </div>
+    <table class="cart-table">
+        <thead><tr><th>Product ID</th><th>Current Stock</th><th>Threshold</th><th>Action</th></tr></thead>
+        <tbody id="alertsBody"><tr><td colspan="4" class="empty-state">Loading alerts...</td></tr></tbody>
+    </table>
+</div>
+
+<script src="script.js"></script>
+<script>
+    "use strict";
+    let statusChartInstance = null, stockChartInstance = null;
+
+    // Cached data for PDF
+    const _cache = { orders:[], products:[], alerts:[], statusCounts:{}, totalRevenue:0 };
+
+    /* ============================================================
+       LOAD STATS
+    ============================================================ */
+    async function loadStats() {
+        const container = document.getElementById("statsArea");
+        try {
+            const [orders, products] = await Promise.all([apiGetOrders(), apiGetProducts()]);
+            const totalRevenue = orders.reduce((s,o)=>s+(o.totalAmount||0), 0);
+            const statusCounts = {};
+            orders.forEach(o=>{ statusCounts[o.status]=(statusCounts[o.status]||0)+1; });
+            const outOfStock = products.filter(p=>p.stockQuantity<=0);
+            const lowStock   = products.filter(p=>p.stockQuantity>0&&p.stockQuantity<5);
+            const inStock    = products.filter(p=>p.stockQuantity>=5);
+
+            Object.assign(_cache, { orders, products, statusCounts, totalRevenue,
+                inStockCount: inStock.length, lowStockCount: lowStock.length, outStockCount: outOfStock.length });
+
+            const avg = orders.length>0 ? (totalRevenue/orders.length).toFixed(2) : "0.00";
+            container.innerHTML = `
+              <div class="stat-grid">
+                <div class="stat-box"><div class="label">Total Orders</div><div class="value">${orders.length}</div></div>
+                <div class="stat-box"><div class="label">Gross Sales</div><div class="value" style="font-size:1.4rem;">Rs. ${totalRevenue.toFixed(2)}</div></div>
+                <div class="stat-box"><div class="label">Avg Order Value</div><div class="value" style="font-size:1.4rem;">Rs. ${avg}</div></div>
+                <div class="stat-box"><div class="label">Active Products</div><div class="value">${products.length}</div></div>
+                <div class="stat-box"><div class="label">Low Stock Warnings</div><div class="value" style="color:var(--danger);">${lowStock.length}</div></div>
+                <div class="stat-box"><div class="label">Out of Stock</div><div class="value" style="color:#dc2626;">${outOfStock.length}</div></div>
+              </div>`;
+
+            renderStatusChart(statusCounts);
+            renderStockChart(inStock.length, lowStock.length, outOfStock.length);
+        } catch(e) {
+            container.innerHTML = `<p class="empty-state">Could not load dashboard data.</p>`;
+            console.error(e);
+        }
+    }
+
+    /* ============================================================
+       CHARTS
+    ============================================================ */
+    function renderStatusChart(sc) {
+        if (typeof Chart==="undefined") return;
+        const el = document.getElementById("statusChart"); if(!el) return;
+        const labels=Object.keys(sc), data=Object.values(sc);
+        if (statusChartInstance) statusChartInstance.destroy();
+        if (!labels.length) return;
+        statusChartInstance = new Chart(el.getContext("2d"),{
+            type:"doughnut",
+            data:{ labels, datasets:[{data, backgroundColor:["#10B981","#3B82F6","#F59E0B","#EF4444","#8B5CF6","#64748B"]}]},
+            options:{responsive:true, plugins:{legend:{position:"bottom"}}}
+        });
+    }
+    function renderStockChart(inS, loS, outS) {
+        if (typeof Chart==="undefined") return;
+        const el = document.getElementById("stockChart"); if(!el) return;
+        if (stockChartInstance) stockChartInstance.destroy();
+        stockChartInstance = new Chart(el.getContext("2d"),{
+            type:"bar",
+            data:{
+                labels:["In Stock (≥5)","Low Stock (<5)","Out of Stock (0)"],
+                datasets:[{label:"Products",data:[inS,loS,outS],backgroundColor:["#10B981","#F59E0B","#EF4444"],borderRadius:6}]
+            },
+            options:{responsive:true,scales:{y:{beginAtZero:true,ticks:{stepSize:1}}},plugins:{legend:{display:false}}}
+        });
+    }
+
+    /* ============================================================
+       ALERTS
+    ============================================================ */
+    async function loadAlerts() {
+        const tbody = document.getElementById("alertsBody");
+        try {
+            const alerts = await apiGetStockAlerts(true);
+            _cache.alerts = alerts;
+            if (!alerts.length) {
+                tbody.innerHTML=`<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--slate);">✨ All stock levels healthy.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = alerts.map(a=>`
+              <tr>
+                <td><strong>#${a.productId}</strong></td>
+                <td style="color:var(--danger);font-weight:700;">${a.currentStock} remaining</td>
+                <td>${a.threshold} units</td>
+                <td><button class="btn btn-secondary" style="padding:6px 12px;font-size:0.8rem;" onclick="resolveAlert(${a.id})">Mark Resolved</button></td>
+              </tr>`).join("");
+        } catch(e) {
+            tbody.innerHTML=`<tr><td colspan="4" class="empty-state">Could not load alerts.</td></tr>`;
+        }
+    }
+    async function scanNow() {
+        try {
+            const n = await apiScanStockAlerts();
+            showModernToast("Scan Complete", n.length>0?`${n.length} item(s) need restocking.`:"All items above threshold.");
+            loadAlerts(); loadStats();
+        } catch(e) { showModernToast("Scan","Catalog scanned."); }
+    }
+    async function resolveAlert(id) {
+        try { await apiResolveAlert(id); showModernToast("Resolved","Alert marked as handled."); loadAlerts(); }
+        catch(e) { showModernToast("Notice","Alert resolved."); }
+    }
+
+    /* ============================================================
+       PDF HELPER FUNCTIONS  (pure jsPDF, no plugins needed)
+    ============================================================ */
+    function pdfTable(doc, startY, headers, rows, colWidths, margin, opts={}) {
+        const rowH     = opts.rowH     || 8;
+        const headH    = opts.headH    || 9;
+        const fontSize = opts.fontSize || 8;
+        const headColor= opts.headColor|| [22,101,52];
+        const altColor = opts.altColor || [240,253,244];
+        const totalW   = colWidths.reduce((a,b)=>a+b,0);
+        const pageH    = doc.internal.pageSize.getHeight();
+        let y = startY;
+
+        // Draw header
+        doc.setFillColor(...headColor);
+        doc.rect(margin, y, totalW, headH, "F");
+        doc.setTextColor(255,255,255);
+        doc.setFont("helvetica","bold");
+        doc.setFontSize(fontSize);
+        let cx = margin;
+        headers.forEach((h,i)=>{
+            doc.text(String(h), cx+2, y+headH-2, {maxWidth: colWidths[i]-4});
+            cx += colWidths[i];
+        });
+        y += headH;
+
+        // Draw rows
+        doc.setFont("helvetica","normal");
+        rows.forEach((row, ri)=>{
+            // Page break
+            if (y + rowH > pageH - 15) {
+                doc.addPage();
+                y = 20;
+                // Repeat header
+                doc.setFillColor(...headColor);
+                doc.rect(margin, y, totalW, headH, "F");
+                doc.setTextColor(255,255,255);
+                doc.setFont("helvetica","bold");
+                cx = margin;
+                headers.forEach((h,i)=>{
+                    doc.text(String(h), cx+2, y+headH-2, {maxWidth: colWidths[i]-4});
+                    cx += colWidths[i];
+                });
+                y += headH;
+                doc.setFont("helvetica","normal");
+            }
+
+            // Alternate row background
+            if (ri%2===0) { doc.setFillColor(...altColor); doc.rect(margin, y, totalW, rowH, "F"); }
+
+            // Row border
+            doc.setDrawColor(226,232,240);
+            doc.rect(margin, y, totalW, rowH, "S");
+
+            cx = margin;
+            row.forEach((cell,ci)=>{
+                const cellStr = String(cell??"-");
+                // Colour coding for status column
+                if (opts.statusCol===ci) {
+                    if (cellStr==="DELIVERED")       doc.setTextColor(22,163,74);
+                    else if (cellStr==="CANCELLED")  doc.setTextColor(220,38,38);
+                    else if (cellStr==="PENDING")    doc.setTextColor(217,119,6);
+                    else if (cellStr==="PACKED")     doc.setTextColor(37,99,235);
+                    else if (cellStr==="OUT")        doc.setTextColor(220,38,38);
+                    else if (cellStr==="LOW")        doc.setTextColor(217,119,6);
+                    else if (cellStr==="OK")         doc.setTextColor(22,163,74);
+                    else doc.setTextColor(30,41,59);
+                    doc.setFont("helvetica","bold");
+                } else {
+                    doc.setTextColor(30,41,59);
+                    doc.setFont("helvetica","normal");
+                }
+                // Truncate text to fit cell
+                let displayStr = cellStr;
+                const maxChars = Math.floor((colWidths[ci]-4)/2.2);
+                if (displayStr.length>maxChars) displayStr = displayStr.substring(0,maxChars)+"…";
+                doc.text(displayStr, cx+2, y+rowH-2);
+                cx += colWidths[ci];
+            });
+            y += rowH;
+        });
+
+        return y + 4; // return final Y
+    }
+
+    function pdfSection(doc, y, title) {
+        if (y > doc.internal.pageSize.getHeight()-30) { doc.addPage(); y = 18; }
+        doc.setFont("helvetica","bold");
+        doc.setFontSize(12);
+        doc.setTextColor(22,101,52);
+        doc.text(title, 14, y);
+        return y + 5;
+    }
+
+    function pdfFooters(doc) {
+        const total = doc.internal.getNumberOfPages();
+        for (let i=1; i<=total; i++) {
+            doc.setPage(i);
+            const ph = doc.internal.pageSize.getHeight();
+            const pw = doc.internal.pageSize.getWidth();
+            doc.setFillColor(248,250,252);
+            doc.rect(0, ph-10, pw, 10, "F");
+            doc.setFont("helvetica","normal").setFontSize(7).setTextColor(100,116,139);
+            doc.text("FreshCart — Confidential Store Report", 14, ph-3);
+            doc.text(`Page ${i} of ${total}`, pw-14, ph-3, {align:"right"});
+        }
+    }
+
+    /* ============================================================
+       MAIN PDF DOWNLOAD
+    ============================================================ */
+    async function downloadFullReport() {
+        const btn = document.getElementById("downloadReportBtn");
+
+        // Guard: check jsPDF loaded
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            showModernToast("PDF Error", "PDF library not ready. Check internet & refresh page.");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Generating...`;
+
+        try {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+            const PW = doc.internal.pageSize.getWidth();   // 210
+            const M  = 14;
+            const CW = PW - M*2;                            // 182
+            let y = 0;
+
+            /* ─── HEADER ─── */
+            doc.setFillColor(22,101,52);
+            doc.rect(0,0,PW,36,"F");
+            doc.setTextColor(255,255,255);
+            doc.setFont("helvetica","bold").setFontSize(20);
+            doc.text("FreshCart", M, 14);
+            doc.setFont("helvetica","normal").setFontSize(10);
+            doc.text("Store Performance & Analytics Report", M, 22);
+            doc.setFontSize(8);
+            doc.text("Generated: "+new Date().toLocaleString(), M, 29);
+            doc.text("By: "+((getUser()||{}).name||"Admin"), PW-M, 29, {align:"right"});
+            y = 44;
+
+            /* ─── KPI BOXES ─── */
+            const d = _cache;
+            const avg = d.orders.length>0 ? (d.totalRevenue/d.orders.length).toFixed(2) : "0.00";
+            const kpis = [
+                ["Total Orders",    String(d.orders.length)],
+                ["Gross Revenue",   "Rs. "+d.totalRevenue.toFixed(2)],
+                ["Avg Order Value", "Rs. "+avg],
+                ["Products",        String(d.products.length)],
+                ["Low Stock",       String(d.lowStockCount||0)],
+                ["Out of Stock",    String(d.outStockCount||0)],
+            ];
+            const bw=(CW-5)/2, bh=14;
+            kpis.forEach(([lbl,val],i)=>{
+                const bx = M + (i%2)*(bw+5);
+                if (i%2===0 && i>0) y += bh+4;
+                doc.setFillColor(248,250,252).setDrawColor(226,232,240);
+                doc.roundedRect(bx, y, bw, bh, 2, 2, "FD");
+                doc.setFont("helvetica","normal").setFontSize(6.5).setTextColor(100,116,139);
+                doc.text(lbl.toUpperCase(), bx+3, y+5);
+                doc.setFont("helvetica","bold").setFontSize(10).setTextColor(22,101,52);
+                doc.text(val, bx+3, y+12);
+            });
+            y += bh + 8;
+
+            /* ─── CHART IMAGES ─── */
+            const sc = document.getElementById("statusChart");
+            const stk = document.getElementById("stockChart");
+            if (sc && stk) {
+                y = pdfSection(doc, y, "Visual Analytics");
+                const cw=(CW-6)/2, ch=50;
+                try { doc.addImage(sc.toDataURL("image/png"), "PNG", M, y, cw, ch); } catch(e){}
+                try { doc.addImage(stk.toDataURL("image/png"),"PNG", M+cw+6, y, cw, ch); } catch(e){}
+                y += ch+8;
+            }
+
+            /* ─── ORDER STATUS BREAKDOWN ─── */
+            const statusRows = Object.entries(d.statusCounts).map(([s,c])=>[
+                s, String(c),
+                d.orders.length>0 ? ((c/d.orders.length)*100).toFixed(1)+"%" : "0%"
+            ]);
+            if (statusRows.length) {
+                y = pdfSection(doc, y, "Order Status Breakdown");
+                y = pdfTable(doc, y, ["Status","Count","Share"], statusRows, [80,40,62], M,
+                             {headColor:[22,101,52], statusCol:0});
+            }
+
+            /* ─── ORDERS TABLE ─── */
+            if (d.orders.length) {
+                y = pdfSection(doc, y, "All Orders Detail");
+                const orderRows = d.orders.map(o=>[
+                    "#"+o.id,
+                    o.deliveryAddress||"—",
+                    o.status||"—",
+                    "Rs. "+(o.totalAmount||0).toFixed(2),
+                    o.orderDate ? new Date(o.orderDate).toLocaleDateString() : "—"
+                ]);
+                y = pdfTable(doc, y, ["Order","Address","Status","Amount","Date"],
+                             orderRows, [18,70,34,32,28], M,
+                             {statusCol:2, headColor:[22,101,52]});
+            }
+
+            /* ─── STOCK ALERTS ─── */
+            y = pdfSection(doc, y, "Low Stock Alerts");
+            if (d.alerts && d.alerts.length) {
+                const alertRows = d.alerts.map(a=>[
+                    "#"+a.productId, String(a.currentStock), String(a.threshold),
+                    a.resolved?"Resolved":"ACTION NEEDED"
+                ]);
+                y = pdfTable(doc, y, ["Product ID","Current Stock","Threshold","Status"],
+                             alertRows, [40,44,44,54], M,
+                             {headColor:[220,38,38], statusCol:3, altColor:[255,241,242]});
+            } else {
+                doc.setFont("helvetica","normal").setFontSize(9).setTextColor(34,197,94);
+                doc.text("✓ All stock levels are healthy. No alerts.", M, y+6);
+                y += 12;
+            }
+
+            /* ─── PRODUCT INVENTORY ─── */
+            if (d.products.length) {
+                y = pdfSection(doc, y, "Product Inventory");
+                const prodRows = d.products.map(p=>[
+                    "#"+p.id,
+                    (p.name||"").length>28 ? (p.name||"").substring(0,28)+"…" : (p.name||""),
+                    p.category||"—",
+                    "Rs. "+(p.price||0).toFixed(2),
+                    String(p.stockQuantity||0),
+                    p.stockQuantity<=0?"OUT":p.stockQuantity<5?"LOW":"OK"
+                ]);
+                pdfTable(doc, y, ["ID","Name","Category","Price","Stock","Status"],
+                         prodRows, [16,54,30,28,18,18], M,
+                         {statusCol:5, headColor:[22,101,52]});
+            }
+
+            pdfFooters(doc);
+
+            const dateStr = new Date().toISOString().slice(0,10);
+            doc.save("FreshCart_Report_"+dateStr+".pdf");
+            showModernToast("PDF Downloaded! 📄", "Full analytics report saved to your device.");
+
+        } catch(err) {
+            console.error("PDF generation error:", err);
+            showModernToast("PDF Error", "Error: "+err.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg> Download PDF Report`;
+        }
+    }
+
+    requireRole("STORE_MANAGER");
+    loadStats();
+    loadAlerts();
+</script>
+</body>
+</html>

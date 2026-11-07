@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FreshCart — Express Checkout</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="topnav">
+    <a href="index.html" class="brand">
+        <div class="brand-icon">🌿</div>
+        <div class="brand-text">Fresh<span>Cart</span></div>
+    </a>
+    <nav>
+        <a href="index.html">🛒 Products</a>
+        <a href="orders.html" data-roles="CUSTOMER">📦 My Orders</a>
+        <a href="my-payments.html" data-roles="CUSTOMER">💳 My Payments</a>
+        <a href="admin-products.html" data-roles="ADMIN">⚙️ Manage Products</a>
+        <a href="admin-orders.html" data-roles="ADMIN,STORE_MANAGER">📋 Manage Orders</a>
+        <a href="admin-payments.html" data-roles="ADMIN,STORE_MANAGER">💳 Manage Payments</a>
+        <a href="reports-dashboard.html" data-roles="ADMIN,STORE_MANAGER">📊 Analytics</a>
+        <a href="admin-users.html" data-roles="ADMIN">👥 Manage Users</a>
+        <a href="delivery-dashboard.html" data-roles="ADMIN,DELIVERY_STAFF">🛵 Deliveries</a>
+        <a href="cart.html" class="cart-pill" data-roles="CUSTOMER">
+            <span class="cart-pill-icon">🛍️</span>
+            <span>Cart</span>
+            <span id="cartCount">0</span>
+        </a>
+        <a href="profile.html">👤 Profile</a>
+        <a href="#" id="logoutBtn">Log out</a>
+    </nav>
+</div>
+
+<div class="page">
+    <div class="page-header reveal">
+        <h1>Express Checkout ⚡</h1>
+        <p>Confirm your delivery destination and review your items before final payment.</p>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr; gap:28px;" id="checkoutLayout">
+        <div id="orderSummary" class="reveal"><p>Loading order details...</p></div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+    let currentCart = null;
+    let productLookup = {};
+
+    async function renderSummary() {
+      const user = getUser();
+      const container = document.getElementById("orderSummary");
+
+      try {
+        const [cart, products] = await Promise.all([apiGetCartByUser(user.id), apiGetProducts()]);
+        currentCart = cart;
+        productLookup = Object.fromEntries(products.map((p) => [p.id, p]));
+
+        const items = cart.items || [];
+        if (items.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <h3>Your cart is empty</h3>
+              <p>Add some fresh groceries before checking out.</p>
+              <a href="index.html" class="btn btn-primary" style="margin-top:12px;">Browse Fresh Products</a>
+            </div>`;
+          return;
+        }
+
+        let total = 0;
+        const rows = items
+          .map((item) => {
+            const product = productLookup[item.productId] || { name: "Item #" + item.productId, price: 0 };
+            const subtotal = product.price * item.quantity;
+            total += subtotal;
+            const imgUrl = getProductImageUrl(product);
+
+            return `
+            <tr>
+              <td>
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <img src="${imgUrl}" style="width:44px; height:44px; border-radius:8px; object-fit:cover; border:1px solid var(--line);" onerror="this.onerror=null; this.src='${DEFAULT_SUPERMARKET_IMAGE}';">
+                  <span style="font-weight:600; color:var(--forest-dark);">${product.name}</span>
+                </div>
+              </td>
+              <td>${item.quantity}</td>
+              <td style="font-weight:700; color:var(--forest-dark);">Rs. ${subtotal.toFixed(2)}</td>
+            </tr>`;
+          })
+          .join("");
+
+        container.innerHTML = `
+          <div style="display:grid; grid-template-columns:1fr; gap:24px;">
+            <div style="background:var(--white); border-radius:var(--radius); padding:24px; border:1px solid var(--line); box-shadow:var(--shadow-sm);">
+              <h3 style="font-size:1.2rem; margin-bottom:16px;">1. Review Basket Items</h3>
+              <table class="cart-table">
+                <thead><tr><th>Product</th><th>Quantity</th><th>Subtotal</th></tr></thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </div>
+
+            <div style="background:var(--white); border-radius:var(--radius); padding:28px; border:1px solid var(--line); box-shadow:var(--shadow-sm); max-width:540px;">
+              <h3 style="font-size:1.2rem; margin-bottom:16px;">2. Delivery Destination</h3>
+              <div class="field">
+                <label for="deliveryAddress">Delivery Street Address</label>
+                <input type="text" id="deliveryAddress" placeholder="e.g. 42 Lotus Grove, Colombo 03" required />
+              </div>
+              <div style="display:flex; gap:10px; margin-bottom:20px; font-size:0.84rem; color:var(--slate);">
+                <span>⚡ Express Delivery: <strong>Guaranteed within 30 mins</strong></span>
+              </div>
+
+              <div style="background:var(--cream); padding:16px; border-radius:var(--radius); margin-bottom:20px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:0.9rem;">
+                  <span>Subtotal</span>
+                  <span>Rs. ${total.toFixed(2)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:0.9rem;">
+                  <span>Delivery Charges</span>
+                  <span style="color:var(--emerald); font-weight:700;">FREE</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-family:var(--font-display); font-size:1.3rem; font-weight:700; color:var(--forest-dark); border-top:1px solid var(--line); padding-top:10px;">
+                  <span>Order Total</span>
+                  <span>Rs. ${total.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <button class="btn btn-primary btn-block" style="padding:14px; font-size:1rem;" onclick="placeOrder(${total})">
+                Confirm & Proceed to Payment →
+              </button>
+              <div id="checkoutMessage" style="margin-top:10px;"></div>
+            </div>
+          </div>
+        `;
+        initScrollReveal();
+      } catch (err) {
+        container.innerHTML = `<p class="empty-state">Could not load summary.</p>`;
+      }
+    }
+
+    async function placeOrder(total) {
+      const address = document.getElementById("deliveryAddress").value.trim();
+      const currentUser = getUser();
+
+      if (!address) {
+        showModernToast("Address Required", "Please enter your delivery street address.");
+        return;
+      }
+
+      const order = {
+        userId: currentUser.id,
+        deliveryAddress: address,
+        totalAmount: total,
+        items: (currentCart.items || []).map((item) => {
+          const product = productLookup[item.productId] || { price: 0 };
+          return {
+            productId: item.productId,
+            quantity: item.quantity,
+            priceAtPurchase: product.price,
+          };
+        }),
+      };
+
+      try {
+        const created = await apiCreateOrder(order);
+
+        // Clear cart
+        await Promise.all((currentCart.items || []).map((item) => apiRemoveCartItem(item.id)));
+        setLocalCart([]);
+
+        showModernToast("Order Created! 🎉", "Redirecting to secure payment gateway...", "");
+        setTimeout(() => {
+          window.location.href = `payment.html?orderId=${created.id}&amount=${created.totalAmount}`;
+        }, 1100);
+      } catch (err) {
+        showModernToast("Error", "Could not place order. Please try again.");
+        console.error(err);
+      }
+    }
+
+    requireRole("CUSTOMER");
+    renderSummary();
+</script>
+</body>
+</html>

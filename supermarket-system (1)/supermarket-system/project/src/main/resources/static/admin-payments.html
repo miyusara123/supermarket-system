@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FreshCart — Manage Payments</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="topnav">
+    <a href="index.html" class="brand">
+        <div class="brand-icon">🌿</div>
+        <div class="brand-text">Fresh<span>Cart</span></div>
+    </a>
+    <nav>
+        <a href="index.html">🛒 Storefront</a>
+        <a href="admin-products.html" data-roles="ADMIN">⚙️ Manage Products</a>
+        <a href="admin-orders.html" data-roles="ADMIN,STORE_MANAGER">📋 Manage Orders</a>
+        <a href="admin-payments.html" class="active" data-roles="ADMIN,STORE_MANAGER">💳 Manage Payments</a>
+        <a href="reports-dashboard.html" data-roles="ADMIN,STORE_MANAGER">📊 Analytics</a>
+        <a href="admin-users.html" data-roles="ADMIN">👥 Manage Users</a>
+        <a href="delivery-dashboard.html" data-roles="ADMIN,DELIVERY_STAFF">🛵 Deliveries</a>
+        <a href="profile.html">👤 Profile</a>
+        <a href="#" id="logoutBtn">Log out</a>
+    </nav>
+</div>
+
+<div class="page">
+    <div class="page-header reveal">
+        <h1>Manage Payments & Refunds 💳</h1>
+        <p>Review customer transactions, issue order refunds, or manage payment logs.</p>
+    </div>
+
+    <div id="pageMessage"></div>
+
+    <table class="cart-table reveal">
+        <thead>
+        <tr>
+            <th>Payment ID</th>
+            <th>Order Ref</th>
+            <th>Amount Paid</th>
+            <th>Method</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody id="paymentsBody">
+        <tr><td colspan="6" class="empty-state">Loading transactions...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script src="script.js"></script>
+<script>
+    async function loadPayments() {
+      const tbody = document.getElementById("paymentsBody");
+      try {
+        const payments = await apiGetPayments();
+        if (payments.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No recorded payments yet.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = payments
+          .map(
+            (p) => `
+          <tr>
+            <td><strong>#${p.id}</strong></td>
+            <td>Order #${p.orderId}</td>
+            <td style="font-weight:700; color:var(--forest-dark);">Rs. ${Number(p.amount).toFixed(2)}</td>
+            <td>${p.method}</td>
+            <td><span class="status-badge ${(p.status || "").toLowerCase()}">● ${p.status}</span></td>
+            <td>
+              <div style="display:flex; gap:8px;">
+                ${
+                  p.status !== "REFUNDED"
+                    ? `<button class="btn btn-secondary" style="padding:6px 12px; font-size:0.8rem;" onclick="markRefunded(${p.id})">Refund</button>`
+                    : ""
+                }
+                <button class="btn btn-danger" style="padding:6px 12px; font-size:0.8rem;" onclick="removePayment(${p.id})">Delete</button>
+              </div>
+            </td>
+          </tr>`
+          )
+          .join("");
+        initScrollReveal();
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Could not load payment records.</td></tr>`;
+      }
+    }
+
+    async function markRefunded(id) {
+      if (!confirm(`Mark payment #${id} as REFUNDED?`)) return;
+      try {
+        await apiUpdatePaymentStatus(id, "REFUNDED");
+        showModernToast("Refund Issued", `Payment #${id} status changed to REFUNDED.`);
+        loadPayments();
+      } catch (err) {
+        showModernToast("Error", "Could not process refund.");
+      }
+    }
+
+    async function removePayment(id) {
+      if (!confirm(`Permanently delete payment #${id}?`)) return;
+      try {
+        await apiDeletePayment(id);
+        showModernToast("Deleted", `Payment #${id} deleted.`);
+        loadPayments();
+      } catch (err) {
+        showModernToast("Error", "Could not delete payment.");
+      }
+    }
+
+    requireStaff();
+    loadPayments();
+</script>
+</body>
+</html>
